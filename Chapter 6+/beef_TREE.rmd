@@ -1,0 +1,106 @@
+---
+title: "Tree Regression of the Demand for Beef in the United States"
+author: "Michael Streyle, Carly Mester, Matt Foundos"
+date: "November 11, 2017"
+output: word_document
+---
+  
+```{r}
+# Set global figure size
+knitr::opts_chunk$set(fig.width=6, fig.height=3.5, echo = TRUE, message=FALSE) 
+```
+## Introduction
+
+First, we import our beef data straight from the web address and attach it. The data has 9 predictor variables (Chicken price,Year, DPI, etc..) that we will use to analyze how they affect the price of beef. Some of the variables are adjusted for inflation and some intentionally leave the inflation adjustment out. There are 36 observations from 1965-2000 in the data set, none of which need to be converted to categorical data.
+
+
+```{r}
+
+beef <- read.table('http://ww2.amstat.org/publications/jse/v22n1/kopcso/BeefDemand.txt', header = TRUE)
+
+
+attach(beef)
+#creating a new variable called myRealDPI because there is an error in X.RDPI.Mean..sq
+myRealDPIsq=(RealDPI-mean(RealDPI))^2
+
+
+
+```
+
+The final model from our Linear Regression Analysis is as follows:
+
+```{r}
+
+fm <- lm(formula = BeefConsump ~ Year + BeefPrice + CPI + RealChickenPrice + 
+    RealBeefPrice)
+summary(fm)
+plot(fm, main='myfit4')
+
+
+```
+
+## Analysis Method - Recursive Partitioning
+
+Start with modeling BeefConsump vs all predictors.
+
+```{r}
+
+#This code demonstrates recursive partition analysis
+library (rpart)
+tree1 = rpart (BeefConsump ~ Year + ChickPrice + BeefPrice + CPI + DPI + RealChickenPrice +
+                 RealBeefPrice + myRealDPIsq, maxdepth=10)
+print (tree1$cptable)
+
+
+```
+
+
+Find the tree with the smallest xerror:
+
+```{r}
+opt1 = which.min (tree1$cptable [,"xerror"])
+opt1
+```
+
+Plot the tree:
+
+This tree tells us that Year is the single most important predictor. If the Year is greater or equal to 1988, then the average BeefConsumption is 95.18. If the Year is less than 1988 then there is an interaction between Year and RealChickenPrice. For years less than 1988 and RealChickenPrice less than 96.42, then the average BeefConsumption is 104.8. Likewise, if a year is less than 1988, and ReaLChickenPrice is greater than 96.42, then the average BeefConsumption is 113.2. In general older years have higher BeefComsumption.  
+
+```{r fig.height=4.5}
+par (mfrow=c(1,1))
+plot(tree1, uniform = TRUE, margin = 0.1, branch = 0.5, 
+     compress = TRUE)
+text(tree1)
+
+```
+Plot BeefConsumption vs predicted.
+
+```{r}
+
+plot (predict(tree1), BeefConsump, main="Actual BeefConsump vs Predicted")
+abline (0, 1, col='red')
+rsq1 = cor (predict(tree1), BeefConsump)^2
+legend ('top', c(paste("Rsq=", round (rsq1, 2))), cex=0.8)
+
+```
+
+Residual plot:
+```{r}
+plot (predict(tree1), residuals(tree1), main="Residuals of BeefConsump vs Predicted")
+abline (0, 0, col='red')
+resid.se = sd (residuals (tree1))
+legend ('top', c(paste ("Resid SE=", round (resid.se, 2))), cex=0.8)
+
+```
+
+In our linear regression modeling, we did not need to do any transformations on BeefConsumption, so it is not neccesary here either, at least not for the purposes of comparing Tree Regression vs Linear Regression. 
+
+
+
+# Summary
+
+The $R^2$ for the BeefConsumption tree is 0.73, which is much lower than the $R^2$ for the final linear regression model, (adjusted R-squared) 0.9563.  
+
+The residual SE for the tree is 4.73, which is significantly higher than the residual SE for the final linear regression model, 1.899, both are in the original BeefConsump units. 
+
+For this dataset, multiple linear regression seems to be a much better way to model BeefConsumption, however, Tree Regression wasn't particularily awful either and seemed much more straightforward and faster. Although Tree Regression wasn't great, it still might be useful with this type of data if the only variables that can be collected are Year, and RealChickenPrice. It is somewhat astonishing to us that Tree Regression can model BeefConsumption somewhat accurately with only two variables. 

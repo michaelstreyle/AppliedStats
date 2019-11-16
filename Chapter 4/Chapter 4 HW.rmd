@@ -1,0 +1,102 @@
+---
+title: "Math 327 Chapter 4 Homework"
+output: word_document
+---
+
+### __ Michael Streyle __
+
+```{r}
+# Code for 4.3b
+# Open the data file, CH01PR2.txt
+mydata <- read.table(file.choose(),header=F,col.names=c("Y","X"))
+
+xname = "Service Time (minutes)"
+yname = "Copiers Serviced (#)"
+
+attach(mydata)
+
+myfit <- lm (Y ~ X)
+myfit
+summary(myfit)
+qt(.9875, 43)
+confint(myfit, level=.975)   
+
+```
+
+```{r}
+# Fit a regression through the origin, for 4.16a
+int0fit = lm (Y ~ 0 + X)
+int0fit
+```
+
+```{r}
+confint(int0fit, level=0.90)
+```
+
+```{r}
+predict(int0fit, data.frame(X=c(6)), interval="prediction", level=.90)
+```
+
+```{r}
+# Plot the data
+plot.new()
+plot(X, Y, xlab=xname, ylab=yname, main="Regression Through the Origin")
+abline(myfit)
+```
+
+```{r}
+# save the residuals
+int0resid = int0fit$residuals
+sum (int0resid)
+
+# Plot residuals vs fitted
+plot.new()
+plot (int0fit$fitted.values, int0resid, xlab=paste(yname, "fitted values"), ylab="Residuals", main="Regression Through Origin - Residuals vs Fitted")
+abline(h=0)
+```
+
+```{r}
+# Lack of fit test
+full = lm (Y ~ 0 + as.factor(X))
+anova(int0fit, full)
+qf(.99, 9, 35)
+```
+
+4.17c.  Lack of fit test.  State hypotheses, decision rule (can be in terms of p-value), and conclusion. 
+
+
+```{r}
+# inverse prediction using the GPA data.
+# Need to read in the GPA data, and change variable names.
+mydata2 <- read.table(file.choose(),header=F,col.names=c("Y","X"))
+xname = "ACT"
+yname = "GPA"
+attach(mydata2)
+myfit = lm (Y ~ X)
+plot (X, Y, xlab=xname, ylab=yname, main="Inverse Prediction")
+abline (myfit)
+b0 = myfit$coeff[1]
+b1 = myfit$coeff[2]
+xnew = (3.4 - b0)/b1
+summ = summary (myfit)
+mse = summ$sigma^2
+n = length(Y)
+numer = (xnew - mean(X))^2
+denom = sum ((X - mean(X))^2)
+s.predx.sq = (mse/b1^2)*(1 + 1/n + numer/denom)
+xnew.lower = xnew - qt(0.90, n-2)*sqrt(s.predx.sq)  # Change confidence level, as needed
+xnew.upper = xnew + qt(0.90, n-2)*sqrt(s.predx.sq)  # Change confidence level, as needed
+xnew.lower
+xnew.upper
+
+# Prediction and Confidence interval for predicted X value at Y=16
+data.frame(Xnew = c(xnew), Lower = c(xnew.lower), Upper = c(xnew.upper), row.names=c("Prediction"))
+
+```
+
+```{r}
+# Equation to check the reasonableness of the interval, equation 4.33, p. 170 should be approx. < 0.1
+eqn4.33 = (qt(0.90, n-2)^2)*mse/(b1^2 * denom)
+eqn4.33
+```
+

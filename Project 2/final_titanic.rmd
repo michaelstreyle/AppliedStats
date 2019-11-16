@@ -1,0 +1,439 @@
+---
+title: "Logistic Regression - Titanic Survival"
+authors: "Michael Streyle, Matt Foundos, Carly Mester"
+output: word_document
+---
+####Michael Streyle, Carly Mester, Matt Foundos
+
+First, we read in the data and did some cleaning.
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(
+                      echo=TRUE, message=FALSE)
+```
+```{r}
+#importing and cleaning the data 
+ship <- read.table('http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/titanic.txt', header = T, sep=',')
+library(base)
+library(Hmisc)
+ship$pclass <- strtoi(substring(ship$pclass, 1, 1))
+colnames(ship) <- c("index", "pclass","survived","name","age","embarked","home.dest","room","ticket","boat","sex")
+
+```
+
+
+Below we are adding columns to the dataframe that are categorical based on missing data from other columns, as well as a column of the length of the passengers name, just for fun.
+```{r}
+#new column of length of passenger's name
+library(stringr)
+ship$name_length <- str_count(ship$name)
+  
+#new column of if ticket is reported
+ship$ticket_rec <- ifelse(ship$ticket == '', yes=0, no=1)
+
+#new column of if room is reported
+ship$room_rec <- ifelse(ship$room == '', yes=0, no=1)
+
+#new column of if home.dest is reported
+ship$home.dest_rec <- ifelse(ship$home.dest == '', yes=0, no=1)
+
+#new column for if age was recorded
+ship$age_rec <- ifelse(ship$age == '', yes=0, no=1)
+ship$age_rec[is.na(ship$age_rec)] <- 0
+
+#new column for age groups with 9 referencing missing 
+ship$agegroup = ifelse(ship$age_rec == 1, cut(ship$age,c(0,10, 20, 30, 40, 50, 60, 70, 80)), 9)
+
+
+attach(ship)
+```
+###Initial Exploration
+The following is some initial exploration and individual variable plots:
+Some interesting things to point out: 
+Missing age is the largest agegroup by nearly 500 people. 
+The 3rd passenger class is the largest by nearly 400 people. 
+The missing values category in agegroup causes the fitted line to decrease, however, it looks like it decreases slightly before agegroup=missing.
+The plot of age and survival by sex shows men obviously did not survive nearly as often as women did. 
+
+```{r}
+
+
+library(MASS)
+table1= xtabs(~survived+sex)
+table1
+
+table2 = xtabs(~survived+pclass+sex)
+table2
+
+barplot (table (ifelse (survived==1, "Yes", "No")), xlab="Survival", ylab="# of people", main='Survival')
+
+hist (age, xlab="Age, years")
+hist (agegroup, xlab="Age Group, 9 = Missing")
+
+
+barplot(table(pclass), xlab='pclass', ylab='# of people', main='size of pclasses')
+
+barplot(table(embarked), main='Embarked Location, blank = missing', ylab='# of people')
+
+#plot survival vs length of name
+plot (jitter (survived, 0.1) ~ name_length, main='Length of Name vs Survival')
+lines (lowess (name_length, survived), col='red')
+
+#plotting survival vs agegroup
+plot (jitter (survived, 0.3) ~ agegroup, main='Age vs Survival')
+lines (lowess(agegroup, survived), col='red')
+
+
+#pairs plot 
+#pairs(ship)
+
+
+
+#this plsmo function is super useful to see interactions
+plsmo(age, survived, group=sex, datadensity=T,  main='Survival vs Age grouped by Gender') # or group=pclass
+title('Age, Survival by Sex')
+
+
+
+```
+
+
+Next, we will create a first order model. We opted to use the ticket_rec, room_rec, and home.dest_rec variables because they are all factor variables with a large number of levels, and we wanted to keep our degrees of freedom as high as possible. Also, these variables did not seem like they would logically be very significant, and home.dest has formatting inconsistencies. We also thought that these variables may not have been very accurately recorded. The coefficients are transformed back from the logit scale, resulting in odds ratios. An example of interpretting is ' for every one unit increase in name_length, the passengers odds of surviving increases by 2.18 percent'.
+```{r error=TRUE}
+attach(ship)
+#creating a first order model
+ship.logit <- glm(survived ~ pclass + name_length + as.factor(agegroup) + ticket_rec + room_rec + as.factor(embarked) + home.dest_rec + as.factor(sex), data=ship,family=binomial)
+
+summary(ship.logit)
+
+#odds ratios
+expbetas = exp(ship.logit$coefficients)
+expbetas
+
+
+```
+
+Next, we use stepwise elimination with both directions, using AIC criteria, which results in the following model. The process removed the room_rec variable and the embarked location factor variable
+
+survived ~ pclass + name_length + agegroup + ticket_rec + home.dest_rec + 
+    as.factor(sex)
+    
+```{r error=TRUE}
+ship.logit.step = step(ship.logit, direction = 'both')
+summary(ship.logit.step)
+
+fitprob0 = predict(object = ship.logit.step, type = 'response')
+
+pred = predict(ship.logit, interval='prediction')
+plot(sex, fitprob0)
+
+
+```
+
+
+Next we fit a model with some interactions between significant predictors
+Then we used AIC criteria for another step elimination with both directions.
+This resulted in the following model:
+
+survived ~ pclass + agegroup + ticket_rec + as.factor(embarked) + 
+    home.dest_rec + as.factor(sex) + pclass:agegroup + pclass:as.factor(sex)
+    
+    Two interactions were kept: pclass times age group, and pclass times sex.
+    
+This model only loses 10 degrees of freedom and nearly all of the variables in the model are significant. 
+
+An example of interpretting the odds ratios:
+If your home_destination is recorded, your odds of surviving is 4.59 times greater than if it is not recorded.
+
+Interpretting the pclass*sex(male) interaction: the combination of pclass and sex is significant to determining if you survive. If you are male, your passenger class has a significant effect on your survival. 
+
+
+```{r error=TRUE}
+ship.logit.int <- glm(survived ~ pclass + name_length + agegroup + ticket_rec + room_rec + as.factor(embarked) + home.dest_rec + as.factor(sex) + pclass*name_length + pclass*agegroup + as.factor(sex)*agegroup + as.factor(sex)*agegroup + as.factor(sex)*pclass, family = binomial)
+
+summary(ship.logit.int)
+anova(ship.logit.int)
+
+step.int = step(ship.logit.int, direction = 'both')
+summary(step.int)
+
+#final model 
+fm =glm(formula = survived ~ pclass + agegroup + ticket_rec + as.factor(embarked) + home.dest_rec + as.factor(sex) + pclass:agegroup + pclass:as.factor(sex), family = binomial)
+
+exp(fm$coefficients)
+```
+
+
+In order to plot our model with the data, we reduced it to a model containing only agegroup, sex, and pclass. In the graph, the solid lines represent men and the dotted lines represent women. For both men and women, black is 1st class, red is 2nd class, and blue is 3rd class.The black data points are female and the red data points are male. 
+
+```{r}
+#reduced model to plot final model
+pi1 = glm (survived ~ agegroup + sex + pclass, family=binomial)
+
+agegpseq = seq (1, 9, len=30)
+
+# plot the data, with different plot symbols for male and female
+
+plot (jitter (agegroup, 0.7), jitter(survived, 0.7),
+      col=sex)
+
+# plot solid lines for males in each passenger class
+pi.male.1 = predict (pi1, data.frame (agegroup=agegpseq, sex='male', pclass=1), type='response')
+lines (agegpseq, pi.male.1)
+
+pi.male.2 = predict (pi1, data.frame (agegroup=agegpseq, sex='male', pclass=2), type='response')
+lines (agegpseq, pi.male.2, col='red')
+
+pi.male.3 = predict (pi1, data.frame (agegroup=agegpseq, sex='male', pclass=3), type='response')
+lines (agegpseq, pi.male.3, col='blue')
+
+# Plot dashed lines for females in each passenger class
+pi.female.1 = predict (pi1, data.frame (agegroup=agegpseq, sex='female', pclass=1), type='response')
+lines (agegpseq, pi.female.1, lty=2)
+
+pi.female.2 = predict (pi1, data.frame (agegroup=agegpseq, sex='female', pclass=2), type='response')
+lines (agegpseq, pi.female.2, lty=2, col='red')
+
+pi.female.3 = predict (pi1, data.frame (agegroup=agegpseq, sex='female', pclass=3), type='response')
+lines (agegpseq, pi.female.3, lty=2, col='blue')
+title('Survival of Men/Women for each Pclass')
+
+
+
+
+```
+
+Next, we plot some of the fitted probabilities for each pclass against age and sex. 
+These plots are useful for seeing the differences between men and womens survival amongst the passenger classes. If you want to survive, it is best to be a young woman in the first passenger class. 
+
+These plots show roughly the same thing as the survival of men/women for each Pclass plot does, however, these plots represent the whole final model rather than a reduced model. The main difference in the plots is that when the full final model is used, the plot generally increases with age until age group 6, and then drops off for every pclass and gender. These plots use the plsmo package and also show the density of the data for the different agegroups. 
+```{r}
+#fitted probabilites for each pclass
+ageseq = seq(min(agegroup), max(agegroup), length=1313)
+fitprob1 = predict (fm, data.frame (agegroup=ageseq, pclass=1), type='response')
+fitprob2 = predict (fm, data.frame (agegroup=ageseq, pclass=2), type='response')
+fitprob3 = predict (fm, data.frame (agegroup=ageseq, pclass=3), type='response')
+
+plsmo(agegroup, fitprob1, group=sex, datadensity=T, col='blue')
+title('Survival Probabilities vs Age for Pclass 1')
+
+plsmo(agegroup, fitprob2, group=sex, datadensity=T, col='red') 
+title('Survival Probabilities vs Age for Pclass 2')
+
+plsmo(agegroup, fitprob3, group=sex, datadensity=T, col='purple')
+title('Survival Probabilities vs Age for Pclass 3')
+
+expbetas_fm = exp (fm$coefficients)
+expbetas_fm
+
+```
+###Model Diagnostics and Tests
+Deviance test for lack of fit (a.k.a., goodnesss of fit): 
+
+$H_0$: The fitted model fits well
+
+$H_1$: The fitted model does not fit well
+
+Here, we want a high p-value, because a low p-value would indicate a lack of fit. 
+Our p-values are:
+initial model: 0.9998
+final model: 0.9999
+Both our initial model and our final model seem to fit well. 
+```{r}
+
+# First model
+pchisq(deviance(ship.logit), df.residual(ship.logit), lower=F)
+
+# Final model
+pchisq(deviance(fm), df.residual(fm), lower=F)
+
+```
+
+
+As seen below, both our initial model and our final model have p-values much less than 0.05 which means they both have significant effect on survival status. 
+```{r}
+
+#Getting the LR test statistic and P-value in R (multiple logistic regression):
+
+# First model
+
+1 - pchisq(ship.logit$null.deviance - ship.logit$deviance, 
+           ship.logit$df.null - ship.logit$df.residual)
+
+# Final model
+
+1 - pchisq(fm$null.deviance - fm$deviance, 
+           fm$df.null - fm$df.residual)
+
+```
+
+Confidence intervals and odds ratios for each variable:
+```{r}
+confint.default (fm)
+exp (confint.default (fm))
+
+```
+
+Residual plots
+The Deviance Residuals looks really good. The lowess fitted line should be horizontal around zero, and it is not perfect, but not bad. 
+```{r}
+# Residual plot
+
+dev<-residuals(fm)
+plot(dev, ylab="Reviance Residuals")
+abline(h=0, lty=3)
+
+
+
+plot (fm$fitted.values, dev, ylab="Deviance Residuals", xlab="Fitted Probabilities", main='Deviance Residuals vs Fitted Probablilites')
+lines (lowess (fm$fitted, dev), col="Red")
+
+
+```
+
+ROC Curve: 
+The ROC curve suggests the predictive ability of this model is better than random guessing, since the AUC is larger than 0.5.  By examining the possible cutoff values in the written excel file, the cutoff that minimizes the distance from the curve to the top left corner is 0.326. With this cutoff, we have a sensitivity of 0.7684 and a specificity of 0.7662. These seem like a very good values, and looking at our ROC curve, 0.326 as a cutoff looks good. With the 0.326 cutoff, the false positive rate is 0.2338 and the true positive rate (sensitivity) is 0.7684. 
+
+
+```{r}
+ship$pred.cat = ifelse (fm$fitted.values < 0.326, 0, 1)
+#ship[order(fm$fitted.values),]
+
+attach(ship)
+table1 = table (survived, pred.cat)
+table1
+sensitivity = table1[2,2]/sum(table1[2,])
+sensitivity
+specificity = table1[1,1]/sum(table1[1,])
+specificity
+
+
+
+library(ROCR)
+pred1 <- prediction(fm$fitted.values, fm$y)
+perf1 <- performance(pred1,"tpr","fpr")
+auc1 <- performance(pred1,"auc")@y.values[[1]]
+auc1
+plot(perf1, lwd=2, col=2, main='ROC Curve')
+abline(0,1)
+legend(0.5,0.4, c(paste ("AUC=", round (auc1, 4), sep="")),   lwd=2, col=2)
+
+
+roc.table = cbind.data.frame(pred1@tn, pred1@fn, pred1@fp, pred1@tp, 
+                             pred1@cutoffs)
+names (roc.table) = c("TrueNeg", "FalseNeg", "FalsePos", "TruePos", "Cutoff")
+attach (roc.table)
+roc.table$sensitivity = TruePos / (TruePos + FalseNeg)  # True positive rate
+roc.table$specificity = TrueNeg / (TrueNeg + FalsePos)  # 1 - False pos rate
+roc.table$FalsePosRate = 1 - roc.table$specificity
+roc.table$PctCorrect = (TruePos + TrueNeg) / 
+                       (TruePos + TrueNeg + FalsePos + FalseNeg)
+#write.csv (roc.table, "ROC table2.csv")
+
+
+```
+
+##Influence Diagnostics 
+
+Plotting age and survival as well as pclass and survival shows that the two rows with the largest influence (2 and 254) are because they were young and old women (2yrs and 63yrs) respectively that were both from the highest passenger class. They were both expected to survive, but neither did. The plots agegroup vs survived and pclass vs survived show these two rows in red. A final model was created without rows 2 nd 254, and the ROC curve was created for this model. The AUC increases from .8466 to .8488, which is not a large enough increase to leave out these two rows, so we will stick with our final model.
+
+
+Rows 197 and 63, which showed up as having high hat-values are men without ages recorded that were part of first class. They were expected to survive, but did not. 
+
+```{r, fig.width=10, fig.height=8}
+
+
+library(car)
+influenceIndexPlot(fm, id.n=3)
+```
+
+```{r, fig.width=10, fig.height=5}
+# Plot data with rows 2 and 25 in red
+my.colors = rep ('black', length (index))
+my.colors [2] = 'red'
+my.colors [254] = 'red'
+plotsym = ifelse (my.colors == 'black', 1, 2)
+
+par(mfrow=c(1,2))
+
+plot (agegroup, jitter (survived, 0.2), col=my.colors, pch=plotsym, main='agegroup vs survived')
+plot (pclass, jitter (survived, 0.2), col=my.colors, pch=plotsym, main='pclass vs survived')
+
+
+#model without rows 2 and 254
+ship1= ship[-c(2, 254), ]
+fm.d =glm(formula = ship1$survived ~ ship1$pclass + ship1$agegroup + ship1$ticket_rec + as.factor(ship1$embarked) + ship1$home.dest_rec + as.factor(ship1$sex) + ship1$pclass*ship1$agegroup + ship1$pclass*as.factor(ship1$sex), family = binomial)
+
+```
+
+```{r}
+par(mfrow=c(1,1))
+library(ROCR)
+pred1 <- prediction(fm.d$fitted.values, fm.d$y)
+perf1 <- performance(pred1,"tpr","fpr")
+auc1 <- performance(pred1,"auc")@y.values[[1]]
+auc1
+plot(perf1, lwd=2, col=2, main='ROC Curve')
+abline(0,1)
+legend(0.5,0.4, c(paste ("AUC=", round (auc1, 4), sep="")),   lwd=2, col=2)
+```
+
+
+The following is the function form Dr. Phil to check our ROC related calculations....they are correct. 
+
+```{r}
+roc.logistic = function (fit) {
+  fitvals = fit$fitted.values  
+  pred1 <- prediction(fitvals, fit$y)
+  perf1 <- performance(pred1,"tpr","fpr")
+  auc1 <- performance(pred1,"auc")@y.values[[1]]
+  plot(perf1, lwd=2, col=2)
+  abline(0,1)
+  legend(0.25, 0.2, c(paste ("AUC=", round(auc1, 2), sep="")), 
+         cex=0.8, lwd=2, col=2)
+  roc.table = cbind.data.frame (pred1@tn, pred1@fp, pred1@fn, pred1@tp,
+                                pred1@cutoffs, perf1@x.values, perf1@y.values)
+  roc.table$spec = 1 - perf1@x.values[[1]]
+  roc.table$ppv = pred1@tp[[1]] / (pred1@tp[[1]] + pred1@fp[[1]])
+  roc.table$npv = pred1@tn[[1]] / (pred1@tn[[1]] + pred1@fn[[1]])
+  roc.table$pctcorr = (pred1@tn[[1]] + pred1@tp[[1]]) / 
+                 (pred1@tn[[1]] + pred1@tp[[1]] + pred1@fn[[1]] + pred1@fp[[1]])
+  roc.table$optdist = sqrt ((perf1@x.values[[1]] - 0)^2 +
+                            (perf1@y.values[[1]] - 1)^2)
+  names (roc.table) = c("TN", "FP", "FN", "TP", "Cutoff", "FPR", "TPR", "Spec",
+                        "PPV", "NPV", "PctCorr", "OptDist")
+  return (roc.table)
+}
+
+roc.table = roc.logistic (fm)
+summary(ship.logit)
+# Find the row(s) in the ROC table with the largest percent correctly classified
+
+roc.table [which.max (roc.table$PctCorr), ]
+
+# Find the row(s) in the ROC table that are closest to the (0, 1) corner.
+
+roc.table [which.min (roc.table$OptDist), ]
+
+
+```
+
+
+##Would the Average Luther Student Survive?
+
+Using data from College Factual (https://www.collegefactual.com/colleges/luther-college/student-life/diversity/), 
+the 'average' Luther student is a female in her 20's from either the first or second passenger class. (using the term average very loosely here).
+
+Using our reduced model that we used to plot the model (survived ~ agegroup + pclass + sex), the average Luther student would survive. If the student decided to spend extra and get a first class ticket, our model predicts their probability of survival is 0.908 and if they buy a second class ticket, their probability of survival is 0.793. Both are well above 0.5, as well as far above our 0.326 cutoff.
+```{r}
+
+luther1 = predict (pi1, data.frame (agegroup=3, sex='female', pclass=1), type='response')
+luther2 = predict (pi1, data.frame (agegroup=3, sex='female', pclass=2), type='response')
+
+#luther student from pclass1
+luther1
+
+#luther student from pclass2
+luther2
+
+```

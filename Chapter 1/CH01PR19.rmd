@@ -1,0 +1,44 @@
+---
+title: "Chapter 1 Question 19   Michael Streyle"
+output:
+  word_document:
+    fig_height: 3.5
+    fig_width: 4.5
+  pdf_document: default
+  html_document: default
+---
+
+```{r echo=FALSE}
+
+# Alternatively, set the working directory and supply the file name
+setwd("C:/Users/Michael Streyle/Desktop/Applied Stats 1/Chapter 1")
+gpa <- read.table("CH01PR19.txt",header=F,col.names=c("GPA","ACT"))
+
+
+# This command makes data frame column names available as variables
+attach(gpa)
+
+# Plot the data
+plot(ACT,GPA)
+
+# Fit the regression model
+fit <- lm (GPA ~ ACT)
+fit
+b1 <- fit$coeff[2]
+b0 <- fit$coeff[1]
+anova(fit)
+ACTat30 <- b0 + b1*30
+abline (b0,b1)
+ACTat30
+
+ACTat31 <- b0 + b1*31
+ACTat31
+
+sum <- sum(fit$residuals^2)
+var1 <- sum/118
+var1
+sqrt(var1)
+
+
+```
+The intercept is `r round(b0,2)` GPA units and the slope is `r round(b1,4)` GPA unit per ACT score increment.

@@ -1,0 +1,337 @@
+---
+title: "Multiple Linear Regression Analysis of the Demand for Beef in the United States"
+author: "Michael Streyle, Carly Mester, Matt Foundos"
+date: "November 11, 2017"
+output: word_document
+---
+  
+```{r}
+# Set global figure size
+knitr::opts_chunk$set(fig.width=6, fig.height=3.5, echo = FALSE, message=FALSE) 
+```
+## Introduction
+
+  First, we import our beef data straight from the web address and attach it. The data has 9 predictor variables (Chicken price,Year, DPI, etc..) that we will use to analyze how they affect the price of beef. Some of the variables are adjusted for inflation and some intentionally leave the inflation adjustment out. There are 36 observations from 1965-2000 in the data set, none of which need to be converted to categorical data.
+
+
+```{r}
+
+beef <- read.table('http://ww2.amstat.org/publications/jse/v22n1/kopcso/BeefDemand.txt', header = TRUE)
+
+
+attach(beef)
+#creating a new variable called myRealDPI because there is an error in X.RDPI.Mean..sq
+myRealDPIsq=(RealDPI-mean(RealDPI))^2
+
+
+
+```
+## Exploratory Analysis
+
+  Due to a computational error in the data, we created a new variable called myRealDPIsq to replace X.RDPI.Mean..sq. The new variable is the RealDPI minus the mean of RealDPI, squared. The distributions of the variables seem to look pretty good. BeefConsumption is slightly right skewed, but not enough to require a transformation, as we will see later. The new variable, myRealDPIsq, is also skewed right, but we decided a transformation is not needed at this time. 
+
+
+```{r fig2, fig.height = 4, fig.width = 4}
+boxplot(ChickPrice, main="Chicken Price")
+boxplot(BeefPrice, main="Beef Price")
+boxplot(BeefConsump, main="Beef Consumption", ylab='pounds')
+boxplot(log(BeefConsump), main=" LOG Beef Consumption", ylab='pounds')
+boxplot(CPI, main="CPI")
+boxplot(DPI, main="DPI")
+boxplot(RealChickenPrice, main="Real Chicken Price")
+boxplot(RealBeefPrice, main="Real Beef Price")
+boxplot(RealDPI, main="Real DPI")
+boxplot(myRealDPIsq, main="Real DPI-Squared")
+
+
+```
+
+  The pairs plot shows quite a few linear relationships. Many of these, such as between DPI and CPI, as well as between myRealDPIsq and DPI, are due to the relation between the variables. Since DPI and CPI describe relatively the same thing, they have a close linear relationship. Many of the variables are derived from each other, such as ChickenPrice and RealChickenPrice, which is why they seem to be related in the pairs plot. Similar such relationships are found within the correlation matrix, and ellipse correlation matrix; DPI and CPI are very highly correlated, as well as other relationships. Another aspect of these plots to note is that none of the variables seem to have any non-linear relationships with BeefConsumption. This suggests that a transformation of the response variable is probably not needed and a transformation of any predictor variable is not obviously needed at this point. 
+
+
+```{r fig1, fig.height = 10, fig.width = 10}
+round (cor(beef), 2)
+beefcor=round (cor(beef), 2)
+pairs(beef, main='Scatter Plot Matrix')
+library(corrplot)
+corrplot(beefcor, method="ellipse", main='Ellipse Correlation Matrix')
+
+```
+
+## First Order Model
+
+To create an initial model, we fit a first-order linear model with all nine predictors. Note that we used our variable called myRealDPIsq instead of the flawed X.RDPI.Mean..sq variable. 
+
+ The analysis of variance table suggests that in our first order model, the significant predictor variables are Year, BeefPrice, CPI, and RealBeefPrice. ChickenPrice and DPI were also marked as slightly significant. According to the summary of the model, only Year, BeefPrice, and RealBeefPrice are significant, with RealChickenPrice being only slightly significant. 
+  The Residual standard error for this initial model is 1.989 which is surprisingly small considering the range of the response variable, beefConsumption, is 90 to 130. The R-squared value for this model is 0.9644 and adjusted is 0.952, which tells us that nearly all of the variablility in BeefConsumption is explained by this model.
+```{r}
+#fit a model with all variables 
+myfit1 <- lm(BeefConsump ~ Year + ChickPrice + BeefPrice + CPI + DPI + RealChickenPrice + RealBeefPrice + RealDPI + myRealDPIsq)
+plot(myfit1)
+
+summary(myfit1)
+anova(myfit1)
+```
+
+```{r fig3, fig.height = 10, fig.width = 10}
+summfit1 = summary (myfit1, correlation = T)
+corrplot (summfit1$correlation, method="number", number.cex=0.6, main='First Order Model Correlations')
+```
+ 
+##Residual Analysis of the First Order Model
+ Residual Analysis of our first order model turned out to be quite good. The Residuals vs Fitted plot looks very good, with no obvious outliers or patterns of non-linearity with a fitted line very tight along y=0. The First Order Model Normal Q-Q plot also looks quite excellent. There appears to be no obvious outliers and the data appears to be normally distributed with only small deviations from normality at the extremes. The First Order Model Scale-Location plot also looks pretty good. The higher fitted values do seem to have higher residuals, which might be something to keep our eyes on, but for now we do not think it is significant enough for a transformation. Finally, the First Order Model Residuals vs Leverage plot shows that there are a few points with high leverage, of which only one is near Cook's distance and is therefore significant. We will keep an eye or two on row 13, and see if this gets remedied.
+  
+  We also did a quick boxcox plot for our data to make sure a transformation on BeefConsumption wasn't needed. As we suspected, the boxcox plot was inconclusive and did not suggest we needed to transform our response variable. 
+
+
+
+```{r}
+boxplot(myfit1$residuals, main='First Order Model Residuals')
+qqnorm(myfit1$residuals)
+qqline(myfit1$residuals)
+
+plot(myfit1, main='First Order Model')
+library(MASS)
+boxcox(myfit1)
+
+```
+ 
+## Backward elimination method
+
+  Next, we used the automatic backwards elimination method using the step function with direction set to backward. This resulted in a model with Year, BeefPrice, CPI, RealChickenPrice, and RealBeefPrice as significant predictor variables. The Residual Standard Error of this model (myfit4) is 1.899, the R-squared value is 0.9625, and the adjusted R-squared is 0.9563; all slight improvements from our first order model. All of the plots of this model are quite good, but row 13 still seems to have high leverage. This will have to be looked into more later. 
+  
+  Each of the following statements is made in the context of the other predictors being held at fixed values:
+  As Year increases one year, beefConsumption increases by roughly 4 pounds per capita.
+  As BeefPrice increases one cent per pound, BeefConsumption increases by roughly 0.27 pounds per capita. 
+  As CPI increases one unit, BeefConsumption decreases roughly 1.5 pounds per capita. 
+  As the RealBeefPrice goes up one cent per pound, BeefConsumption decreases roughly 0.4 pounds per capita. 
+
+  The only statement above that is not quite what we expected is the fact that as BeefPrice goes up, BeefConsumption increases. This is countered by the relationship between RealBeefPrice and BeefConsumption, which shows that the inflation adjustment makes a difference with BeefPrice vs RealBeefPrice. 
+  Also note that in the Studentized residuals vs fitted values plot, none of the studentized residuals are greater than the absolute value of 4 which confirms that there are no outliers.
+
+```{r}
+step(myfit1, direction="backward", trace=FALSE)
+
+#result of backward elimination method:
+
+myfit4 <- lm(formula = BeefConsump ~ Year + BeefPrice + CPI + RealChickenPrice + 
+    RealBeefPrice)
+summary(myfit4)
+plot(myfit4, main='myfit4')
+
+
+#semistudentized residuals
+plot(myfit4$fitted.values, studres(myfit4), main="Studentized residuals vs fitted values")
+
+plot( RealBeefPrice, myfit4$residuals, main="RealBeefPrice vs Residuals")
+
+boxplot(myfit4$residuals, main='myfit4 residuals')
+qqnorm(myfit4$residuals, main='myfit4 Normal Q-Q')
+qqline(myfit4$residuals)
+
+```
+
+###Check into row 13's leverage
+
+  Since row 13 showed some concern in the myfit4 Residuals vs Leverage plot, we made a copy of our data and removed row 13 from it. Then we refit myfit4 as myfit4.1 to see if it significantly changed the model, remembering to put the full column names from beefcopy in myfit4.1. The results of removing this row are slightly better Residual Standard Error (1.765) and a slightly higher R-squared value and adjusted R-squared value. The plots of this new model also look very good. In comparison to the plots of the model with row 13, the new residuals vs fitted plot looks a little worse, the new scale-location plot looks better, and the Residuals vs Leverage plot now shows row 12 inside of Cook's distance. Our conclusion: removing row 13 was not as significant as it could have been and it produces a possible problem with row 12 now, so we are going to stick with including row 13. Plus, the best fit line of the Residuals vs Leverage plot with row 13 included (myfit4) does not cross Cook's distance so it doesn't appear to be of too much concern. 
+
+
+```{r}
+attach(beef)
+beefcopy <- data.frame(beef)
+tracemem(beefcopy)==tracemem(beef) #check to make sure its a copy
+beefcopy <- beefcopy[-c(13), ]
+myfit4.1 <- lm(formula = beefcopy$BeefConsump ~ beefcopy$Year + beefcopy$BeefPrice + beefcopy$CPI + beefcopy$RealChickenPrice + 
+    beefcopy$RealBeefPrice)
+
+summary(myfit4.1)
+anova(myfit4, myfit4.1)
+plot(myfit4.1)
+
+```
+
+## Interaction Analysis
+
+  Now we will examine two-way interactions among the 4 most significant predictor variables.  We first created a fuction to center Year, BeefPrice, RealBeefPrice, and CPI. We then created interaction variables with these four centered variables. Fitting a model with all the significant predictors and all the interaction effect variables called fit.int. This model had a Residual Standard Error of 2.025 and an adjusted R-squared value of 0.9503. However, according to the results of the summary of the model, only centered year was significant, and BeefPrice*RealBeefPrice was slightly significant. Next, we will try a step-wise elimination on the model with interactions.  
+
+```{r}
+
+#creating a function to center a variable
+my.center = function (x) (x - mean (x))
+
+detach(beef)
+
+#centering our three significant variables from our first order model. Year, BeefPrice, and RealBeefPrice, and CPI since it is significant in our myFit4
+beef$Year.c = my.center (beef$Year)
+beef$BeefPrice.c = my.center (beef$BeefPrice)
+beef$RealBeefPrice.c = my.center (beef$RealBeefPrice)
+beef$CPI.c = my.center (beef$CPI)
+
+
+attach(beef)
+
+beef$Year.BeefPrice = Year.c * BeefPrice.c
+beef$Year.RealBeefPrice = Year.c * RealBeefPrice.c
+beef$Year.CPI = Year.c * CPI.c
+
+beef$BeefPrice.RealBeefPrice = BeefPrice.c * RealBeefPrice.c
+beef$BeefPrice.CPI = BeefPrice.c * CPI.c
+
+beef$RealBeefPrice.CPI = RealBeefPrice.c * CPI.c
+
+detach(beef)
+attach(beef)
+
+#fit a model with the primary predictors and their interactions
+#then do a backward elimination
+
+fit.int = lm(BeefConsump ~ Year.c + BeefPrice.c + RealBeefPrice.c + CPI.c + Year.BeefPrice + Year.RealBeefPrice + Year.CPI + BeefPrice.RealBeefPrice + BeefPrice.CPI + RealBeefPrice.CPI)
+
+summary(fit.int)
+
+```
+
+  The stepwise elimination procedure ended with the following model:
+
+  step.int = lm(formula = BeefConsump ~ Year.c + RealBeefPrice.c + CPI.c + 
+      Year.BeefPrice + Year.CPI)
+      
+  The summary of the model indicates that all of the variables are significant, and has a Residual Standard Error of 2.013 and an adjusted R-squared value of 0.9509. Usually, for every interaction effect in a model, we should have both primary predictors in the model that are involved in that interaction. Here, we have every primary variable that is involved in an interaction except BeefPrice. Because of this, we tested this full model (step.int) with a model where the interaction involving BeefPrice is removed (step.int.red).
+
+
+
+```{r}
+n=36
+step.int = step (fit.int, direction = "both", k=log(n))
+summary(step.int)
+plot(step.int, main='Stepwise w/ Interactions')
+
+```
+The variance inflation factors range from 1.0 to 85.  They are highest Year and CPI which we know are correlated from our very first pairs plot. 
+
+
+```{r}
+step.int.red = lm(formula = BeefConsump ~ Year.c + RealBeefPrice.c + CPI.c + Year.CPI)
+summary(step.int.red)
+anova(step.int.red, step.int)
+library (car)
+vif (step.int.red)
+par (mfrow = c(1,2))
+mean (vif (step.int))
+
+```
+
+The full step-wise model fits better than the reduced model. The difference between models has a p-value of 0.0001418. While it is a very small p-value, neither of these models fits as well as our myfit4. Since our original stepwise elimination model (myfit4) turned out to be better than any of our other models with interactions, we return to focusing on it.  
+
+Some notes about the plots of Stepwise w/ Interactions plots:   The residuals vs fitted looks pretty good.  There is little evidence of outliers, non-constant variance, or significant curvature.  The Q-Q plot also looks pretty good.  All points are pretty close to the line, indicating that a normal distribution is a reasonable assumption for these residuals. 
+
+The one aspect of the model with interaction effects that is better than myfit4 is that the interaction effects seem to fix the issues with row 13. The Stepwise w/ Interactions residuals vs Leverage plot shows none of the data is past Cook's distance. However, since we saw that removal of row 13 only made the model slightly better, we continue to believe that myfit4 is our best model. 
+
+
+```{r}
+par (mfrow = c(1, 2))
+plot (step.int, main="Stepwise w/Interactions")
+plot (step.int.red$fitted.values, BeefConsump, main="BeefConsump vs Fitted",
+      xlab = "Fitted BeefConsump", ylab = "BeefConsump")
+abline(0, 1)
+
+
+```
+
+Next, we made a model with all variables (significant and insignificant) and the two interaction effects that were found to be significant. After running a step-wise elimination on this model, it resulted in the exact same model that backwards elimination produced from our first order model (myfit4). This confirms to us that myfit4 is our best model.
+
+```{r}
+#fit a model with ALL variables and interactions(2)
+myfit5 <- lm(BeefConsump ~ Year + ChickPrice + BeefPrice + CPI + DPI + RealChickenPrice + RealBeefPrice + RealDPI + myRealDPIsq + BeefPrice.RealBeefPrice + Year.CPI)
+#plot(myfit5)
+
+summary(myfit5)
+qqnorm(myfit5$residuals)
+qqline(myfit5$residuals)
+
+
+myfit6 = step(myfit5, direction='both')
+anova(myfit6, myfit4)
+```
+
+##More Analysis of Myfit4 (Final Model)
+
+The studentized deleted residuals plot does not show any concerns. 
+We also double checked the final model's residuals and Normal Q-Q plot - all of which look good.
+The added variable plots show a trend for each predictor in the model, given all of the other predictors. The directions of these trends correspond to the parameter estimates.
+
+```{r}
+rst = rstudent(myfit4)
+plot(myfit4$fitted.values, rst,  main="Studentized Deleted Residuals myfit4", xlab="Fitted Log MPG",ylab="Student. Del. Resid.")
+
+par (mfrow = c(1,2))
+boxplot (myfit4$residuals, main="Final Model Residuals")
+plot (myfit4, which=2, main="Final Model Residuals")
+
+```
+
+```{r fig5, fig.height = 14, fig.width = 10}
+library (car)
+avPlots(myfit4)
+```
+
+
+The DFFits plot shows some years with high DFFits values. Rows 12 and 13 had high and low predictions respectively. These years were also the furthest from normal on the Q-Q plot. 
+
+```{r}
+
+par (mfrow = c(1,1))
+beef$dffits = dffits (myfit4)
+beef$BeefConsump.fit = myfit4$fitted.values
+plot (seq (1, length (beef$dffits)), beef$dffits, 
+      main="DFFits, Final Model",
+      xlab="Row Number", ylab="DFFits")
+
+
+```
+
+
+
+##Example Predictions
+
+  We decided to do some example predictions with 95% confidence using myfit4, step.int, and step.int.red because all of them seemed to be pretty good models. Initially, we set out asking ourselves if we could predict BeefConsumption with 80 percent significance. After realizing how small of a residual standard error we had, we decided to bump that up to 95% confidence for our prediction intervals. We ended up settling on myfit4, our model that resulted from a backwards elimination process on our original first order model, as our final model. We wanted to see if this model actually did a better job predicting BeefConsumption, compared to the model with interactions and the reduced model with interactions. We predicted response values for rows 3, 4, 23, 24, 27, 28 using all three models. 
+  Summing the absolute differences between the predictive model and the actual values serves as a way to compare relatively how useful each model is in predicting the response variable (BeefConsumption). The sum of the differences using step.int is 10.374, the sum of the differences using step.int.red is 12.234, and the sum of the differences using myfit4 is 8.989. This indicates that for predictive purposes, myfit4 is probably the most useful (although all models show strong standard error and R squared values).
+  At the end, we used the same three models to see what the predicted values were for the outlier rows 12 and 13. All of the models seem to do a decent job predicting them, but as you can see in the DFFits, Final model plot, row 12 is underpredicted and row 13 is overpredicted using our best model myfit4. Looking back, we think the models did a good enough job predicting outliers on each end that remedial measures were not needed. The rest of our predictions are precise enough that they make 12 and 13 look like poor predictions, but considering the spread of our response variable, the model (myfit4) predicts quite well.  
+
+```{r}
+#some predictions using myfit4
+p.myfit4 = predict(myfit4, interval='prediction', level=0.95)
+round(p.myfit4[c(3:4, 23:24, 27:28)], 3)  #myfit4 predicted values
+round(BeefConsump[c(3:4, 23:24, 27:28)], 3)  #actual values
+
+p.step.int = predict(step.int, interval='prediction', level=.95)
+round(p.step.int[c(3:4, 23:24, 27:28)], 3)  #step.int predicted values
+round(BeefConsump[c(3:4, 23:24, 27:28)], 3)  #actual values
+
+
+p.step.int.red = predict(step.int.red, interval='prediction', level=0.95)
+round(p.step.int.red[c(3:4, 23:24, 27:28)], 3)  #step.int.red predicted values
+round(BeefConsump[c(3:4, 23:24, 27:28)], 3)  #actual values
+
+x = round(p.step.int[c(3:4, 23:24, 27:28)], 3) - round(BeefConsump[c(3:4, 23:24, 27:28)], 3) #differences between actual and predicted using step.int
+sum(abs(x)) #sum of absolute value of differences between predicted using step.int and actual
+
+
+z = round(p.myfit4[c(3:4, 23:24, 27:28)], 3) - round(BeefConsump[c(3:4, 23:24, 27:28)], 3) #differences between actual and predicted using myfit4
+sum(abs(z)) #sum of absolute value of differences between predicted using myfit4 and actual values
+
+w = round(p.step.int.red[c(3:4, 23:24, 27:28)], 3) - round(BeefConsump[c(3:4, 23:24, 27:28)], 3) #differences between actual and predicted using step.int.red
+sum(abs(w)) #sum of absolute value of differences between predicted using step.int.red and actual values
+
+round(p.myfit4[c(12, 13)], 3)
+round(BeefConsump[c(12, 13)], 3)
+
+
+round(p.step.int.red[c(12, 13)], 3)
+round(BeefConsump[c(12, 13)], 3)
+
+
+round(p.step.int[c(12, 13)], 3)
+round(BeefConsump[c(12, 13)], 3)
+
+```

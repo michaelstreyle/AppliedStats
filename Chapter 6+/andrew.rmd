@@ -1,0 +1,22 @@
+---
+title: "Andrew Drugs"
+author: "Michael "
+date: "November 11, 2017"
+output: word_document
+---
+  
+```{r}
+setwd("C:/Users/Michael Streyle/Desktop")
+library(nplr)
+andrew <- read.csv('andrew.csv')
+attach(andrew)
+
+
+
+
+np2 <- nplr(y=Their.curve, x=Ave, npars = 4)
+plot(np2, main="ANDREW")
+summary(np2)
+getEstimates(object = np2, targets = c(0.16695,0.3233,0.73355,0.92795, 0.86285, 0.8075, 0.8049))
+
+```

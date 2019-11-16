@@ -1,0 +1,36 @@
+---
+title: "Chapter 1 Question 20   Michael Streyle"
+output:
+  word_document:
+    fig_height: 3.5
+    fig_width: 4.5
+  pdf_document: default
+  html_document: default
+---
+
+```{r echo=FALSE}
+
+# Alternatively, set the working directory and supply the file name
+setwd("C:/Users/Michael Streyle/Desktop/Applied Stats 1/Chapter 2")
+copier <- read.table("CH01PR20.txt",header=F,col.names=c("Minutes","Copier_serviced"))
+
+
+# This command makes data frame column names available as variables
+attach(copier)
+
+# Plot the data
+plot(Copier_serviced, Minutes)
+
+# Fit the regression model
+fit <- lm (Minutes ~ Copier_serviced)
+fit
+b1 <- fit$coeff[2]
+b0 <- fit$coeff[1]
+anova(fit)
+abline(b0, b1)
+five_copiers <- b0 + b1*5
+abline (b0,b1)
+five_copiers
+
+```
+The intercept is `r round(b0,2)` GPA units and the slope is `r round(b1,4)` GPA unit per ACT score increment.

@@ -1,0 +1,37 @@
+---
+title: "Chapter 1 Problem 22 Michael Streyle"
+output:
+  word_document:
+    fig_height: 3.5
+    fig_width: 4.5
+  pdf_document: default
+  html_document: default
+---
+```{r echo=FALSE}
+
+# Alternatively, set the working directory and supply the file name
+setwd ("C:/Users/Michael Streyle/Desktop/Applied Stats 1")
+plastic <- read.table("CH01PR22.txt",header=F,col.names=c("hardness","hours"))
+
+
+# This command makes data frame column names available as variables
+attach(plastic)
+
+# Plot the data
+plot(hours,hardness)
+
+# Fit the regression model
+fit <- lm (hardness ~ hours)
+fit
+b1 <- fit$coeff[2]
+b0 <- fit$coeff[1]
+abline (b0,b1)
+forty_hours <- b0 + b1*40
+forty_hours
+fortyone_hours <- b0 + b1*41
+fortyone_hours
+fortyone_hours - forty_hours
+
+```
+
+The intercept is `r round(b0,2)` Hardness units and the slope is `r round(b1,4)` hardness units per hour.

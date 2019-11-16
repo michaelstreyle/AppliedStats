@@ -1,0 +1,112 @@
+---
+title: "Math 321- Michael Streyle"
+output: word_document
+---
+```{r}
+
+```
+
+## Problem 44
+```{r echo=TRUE}
+
+# n=5, 
+x=rweibull(n = 5, shape = 2, scale = 5)
+samp = sample(x, size = 5*1000, replace=T)
+
+sampmatrix = matrix(samp, 5)
+sampmeans = apply(sampmatrix, 2, mean)
+hist(sampmeans, main='Problem 44, n=5')
+```
+
+
+```{r echo=TRUE}
+# n=10, 
+x10=rweibull(n = 10, shape = 2, scale = 5)
+samp10 = sample(x10, size = 10*1000, replace=T)
+
+sampmatrix10 = matrix(samp10, 10)
+sampmeans10 = apply(sampmatrix10, 2, mean)
+hist(sampmeans10, main='Problem 44, n=10')
+
+
+```
+
+
+```{r echo=TRUE}
+# n=20, 
+x20=rweibull(n = 20, shape = 2, scale = 5)
+samp20 = sample(x20, size = 20*1000, replace=T)
+
+sampmatrix20 = matrix(samp20, 20)
+sampmeans20 = apply(sampmatrix20, 2, mean)
+hist(sampmeans20, main='Problem 44, n=20')
+```
+
+
+```{r echo=TRUE}
+# n=30, 
+x30=rweibull(n = 30, shape = 2, scale = 5)
+samp30 = sample(x30, size = 30*1000, replace=T)
+
+sampmatrix30 = matrix(samp30, 30)
+sampmeans30 = apply(sampmatrix30, 2, mean)
+hist(sampmeans30, main='Problem 44, n=30')
+```
+
+##Problem 45.
+
+```{r echo=TRUE}
+#n=10
+
+x.10=rnorm(n = 10, mean = 3, sd = 1)
+samp.10 = sample(x.10, size = 10*1000, replace=T)
+
+sampmatrix.10 = matrix(samp.10, 10)
+sampmeans.10 = apply(sampmatrix.10, 2, mean)
+hist(sampmeans.10, main='Problem 45, n=10')
+
+
+```
+
+
+
+```{r echo=TRUE}
+#n=20
+
+x.20=rnorm(n = 20, mean = 3, sd = 1)
+samp.20 = sample(x.20, size = 20*1000, replace=T)
+
+sampmatrix.20 = matrix(samp.20, 20)
+sampmeans.20 = apply(sampmatrix.20, 2, mean)
+hist(sampmeans.20, main='Problem 45, n=20')
+
+
+```
+
+
+```{r echo=TRUE}
+#n=30
+
+x.30=rnorm(n = 30, mean = 3, sd = 1)
+samp.30 = sample(x.30, size = 30*1000, replace=T)
+
+sampmatrix.30 = matrix(samp.30, 30)
+sampmeans.30 = apply(sampmatrix.30, 2, mean)
+hist(sampmeans.30, main='Problem 45, n=30')
+
+
+```
+
+
+```{r echo=TRUE}
+#n=50
+
+x.50=rnorm(n = 50, mean = 3, sd = 1)
+samp.50 = sample(x.50, size = 50*1000, replace=T)
+
+sampmatrix.50 = matrix(samp.50, 50)
+sampmeans.50 = apply(sampmatrix.50, 2, mean)
+hist(sampmeans.50, main='Problem 45, n=50')
+
+
+```

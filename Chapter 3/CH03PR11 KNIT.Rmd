@@ -1,0 +1,37 @@
+---
+title: "Chapter 3 Question 11 - Michael Streyle"
+output:
+  word_document:
+  fig_height: 3.5
+fig_width: 4.5
+pdf_document: default
+html_document: default
+---
+  
+```{r echo=FALSE}
+
+setwd("C:/Users/Michael Streyle/Desktop/Applied Stats 1/Chapter 3")
+# Open the data file, using a file open dialog, select the file, CH01PR22.txt
+drugs <- read.table(file.choose(),header=F,col.names=c("dose","residual"))
+
+
+
+attach(drugs)
+
+# Plot the data
+plot(dose,residual)
+
+hfit <- lm (residual ~ dose)
+summary(hfit)
+abline(hfit$coefficients)
+
+
+
+library(lmtest)
+bptest(hfit)
+
+
+
+
+```
+

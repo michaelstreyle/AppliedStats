@@ -1,0 +1,251 @@
+---
+title: "Beef Data - First Draft"
+author: "Michael Streyle, Carly Mester, Matt Foundos"
+date: "October 27, 2017"
+output: word_document
+---
+  
+```{r}
+
+
+
+```
+
+General Note: We have a lot of code that we won't end up using, but kept it included to show our exploration of the data. We will obviously be cleaning it up before the final draft.
+
+A: Our data set examines the factors that could affect beef prices. We have 9 predictor variables(Chicken price,Year, DPI, etc..) that we will use from the start to examine how they will affect beef prices. Some of these are adjusted for inflation and some intentionally leave the adjustment out. There are 36 observations in our data set, none of which need to be converted to categorical data.
+
+```{r echo=TRUE}
+# Applied Statistics Project 1
+# Michael Streyle, Matt Foundos, Carly Mester
+
+
+beef <- read.table('http://ww2.amstat.org/publications/jse/v22n1/kopcso/BeefDemand.txt', header = TRUE)
+
+ 
+attach(beef)
+#creating a new variable called myRealDPI because there is an error in X.RDPI.Mean..sq
+myRealDPIsq=(RealDPI-mean(RealDPI))^2
+
+#checking distributions of each variable
+boxplot(ChickPrice, main="Chicken Price")
+boxplot(BeefPrice, main="Beef Price")
+boxplot(BeefConsump, main="Beef Consumption")
+boxplot(CPI, main="CPI")
+boxplot(DPI, main="DPI")
+boxplot(RealChickenPrice, main="Real Chicken Price")
+boxplot(RealBeefPrice, main="Real Beef Price")
+boxplot(RealDPI, main="Real DPI")
+boxplot(myRealDPIsq, main="Real DPI-Squared")
+
+#myRealDPIsq is skewed, but since it is a derived variable, we don't know if we should mess with it
+```
+
+Bb:  We are given a variable with an error in it (X.RDPI.Mean..sq), so we created a new corrected variable called myRealDPIsq to replace it. Next, we examined the distributions of all of our variables with seperate boxplots. We noticed that the variable we created was skewed, but since we created it we decided not to transform it any further. The other 8 variables aren't perfectly normal, however they fit well enough that we do not need to transform them. Note: A boxcox plot is conducted later, which is inconclusive.
+
+
+```{r}
+
+# Plot some of the data
+plot(Year,RealBeefPrice)
+plot(Year,BeefConsump)
+plot(Year, RealChickenPrice)
+typeof(beef)
+
+```
+
+B:  We plot three of our variables against the Year and see what the data looks like. The most obvious is that there seems to be a negative linear relationship between RealChickPrice and Year. The other two plots show weak nonlinear relationships and have no real pattern that can be seen throughout the entire plot.
+
+
+```{r}
+#showing CPI and DPI have a very high correlation, indicates we should not need to use them both
+cor(DPI, CPI)
+
+
+
+#shows the correlation matrix and pairs plots
+round (cor(beef), 2)
+pairs(beef)
+```
+
+C:  First we check the correlation between CPI and DPI and we see there is a high level which indicates we probably do not need to use both variables. We then produced our correlation matrix and examine our correlations in our pair plots. Between these two tools, it is easy to see which variables correlate and which we should start examining for use from here on out.
+
+
+```{r}
+
+
+#trying to use RealChickenPrice and RealBeefPrice to model BeefConsump
+myfit <- lm (BeefConsump ~ RealChickenPrice + RealBeefPrice)
+myfit
+summary(myfit)
+plot(myfit)
+
+#this boxplot shows there are outliers on both ends of the data
+resid = myfit$residuals
+fitted = myfit$fitted.values
+boxplot(resid)
+
+plot (fitted, resid, xlab="Fitted Values", ylab="Residuals", col='blue')
+abline(h=0, col='red')
+
+#qqplot
+
+qqnorm (resid, col='blue')
+qqline (resid, col='red')
+
+#this indicates a transformation might be helpful.
+#need to do boxcox of myfit otherwise it is seen as a linear model
+library(MASS)
+boxcox(myfit)
+#boxcox plots are not conclusive
+```
+
+D:   Here we are trying to use RealChickenPrice and RealBeefPrice to model BeefConsump. From all of our plots we have throughout this chunk of code, we can tell many things. Our data seems to be "heavily-tailed" on both ends, but none far enough to be outliers. There seems to be a non-constant variance throughout the data and it seems to be normally distributed. At the end of this chunk of code, we look to see if a transformation might be useful but our boxcox plots come back inconclusive. 
+
+
+```{r}
+#fit a model with all variables 
+myfit1 <- lm(BeefConsump ~ Year + ChickPrice + BeefPrice + CPI + DPI + RealChickenPrice + RealBeefPrice + RealDPI + myRealDPIsq)
+plot(myfit1)
+
+summary(myfit1)
+anova(myfit1)
+
+boxplot(myfit1$residuals)
+qqnorm(myfit1$residuals)
+qqline(myfit1$residuals)
+
+```
+
+E:  Here we create our myfit1, which contains all of our variables. There is a slight curvature of the residuals, however I would say it is close to linear. There also seems to be  a constant variance with normally distributed residuals. We then started looking at some residual analysis and the residuals look to be normally distributed and relatively normal. With our new "myfit1" our Residual Standard Error seems to have gotten much better. The scale of our residual boxplots has decreased significantly and our Multiple R-squared has increased quite a bit as well.
+
+
+```{r}
+#myfit3 sucks but keeping it for now
+plot(resid, RealDPI)
+myfit3 <- lm(BeefConsump ~ RealChickenPrice + RealBeefPrice + myRealDPIsq)
+plot(myfit3)
+
+myfit3
+summary(myfit3)
+boxcox(myfit3)
+
+```
+
+F:
+
+
+
+```{r}
+
+#what exactly is X.RDPI.Mean..sq?
+# it is The square of the difference between Inflation-adjusted Disposable Personal Income per capita and its mean
+
+
+#bp test
+library(lmtest)
+bptest(myfit1, studentize=FALSE)
+#the results of the bptest indicate constant variance since the p-value is 0.262 which is greater than 0.01 (my chosen level of significance)
+
+
+#lack of fit test
+
+aggregate (BeefConsump, by=list(RealBeefPrice, RealChickenPrice, RealDPI), FUN='mean')
+
+# Fit the full model:
+full = lm (BeefConsump ~ 0 + as.factor(RealBeefPrice) * as.factor(RealChickenPrice) * as.factor(RealDPI))
+anova (myfit3, full)
+summary(myfit3)
+#the summary shows a p-value of 6.909e-07 which is small suggesting a good regression relation
+```
+
+G:
+
+
+
+
+```{r}
+#looking at some residual diagnostics of myfit3
+
+plot(myfit3)
+#semistudentized residuals
+plot(myfit3$fitted.values, studres(myfit3), main="Studentized residuals vs fitted values
+")
+#note that none of the studentized residuals are greater than the absolute value of 4 - no outliers
+plot( RealBeefPrice, myfit3$residuals, main="RealBeefPrice vs Residuals")
+plot( RealChickenPrice, myfit3$residuals, main="RealChickenPrice vs Residuals")
+plot( X.RDPI.Mean..sq, myfit3$residuals, main="X.RDPI.Mean..sq vs Residuals")
+#the X.RDPI.Mean..sq vs residuals seems interesting. 
+
+boxplot(myfit3$residuals)
+qqnorm(myfit3$residuals)
+qqline(myfit3$residuals)
+
+
+```
+
+H:
+
+
+
+
+```{r}
+#before running the following lines, enlarge your plots window, or it might produce an error
+hist(RealBeefPrice)
+hist(RealChickenPrice)     #these show some interesting distributions
+hist(X.RDPI.Mean..sq)
+#RealChickenPrice and X.RDPI.Mean..sq show some indication of being right skewed so
+#even though other indicators don't suggest this, maybe try a log transformation (as suggested in advice doc on katie)
+```
+
+I:
+
+
+```{r}
+#random lines of code
+confint(myfit1, level=0.99)  
+summary(myfit1)$r.squared
+cor(BeefConsump, myfit1$fitted.values)^2 #same as line 112
+
+
+
+#some confidence interval stuff
+mean1 = mean(myRealDPIsq)  #setting myRealDPIsq to its mean because using a random number for it seems somewhat meaningless because it is a derived variable. (Maybe I should derive its value with 50,50)
+
+#predict (myfit1, data.frame (RealBeefPrice=50, RealChickenPrice=50, X.RDPI.Mean..sq=mean1), interval='confidence', level=0.99)
+#predict (myfit3, data.frame (RealBeefPrice=50, RealChickenPrice=50, X.RDPI.Mean..sq=mean1), interval='prediction', level=0.99)
+
+
+
+```
+J: Backward elimination method - automatic using step function
+
+
+
+
+```{r}
+step(myfit1, direction="backward", trace=FALSE)
+
+#result of backward elimination method:
+
+myfit4 <- lm(formula = BeefConsump ~ Year + BeefPrice + CPI + RealChickenPrice + 
+    RealBeefPrice)
+summary(myfit4)
+plot(myfit4, main='myfit4')
+
+
+#semistudentized residuals
+plot(myfit4$fitted.values, studres(myfit4), main="Studentized residuals vs fitted values")
+
+#note that none of the studentized residuals are greater than the absolute value of 4 - no outliers
+plot( RealBeefPrice, myfit4$residuals, main="RealBeefPrice vs Residuals")
+plot( RealChickenPrice, myfit4$residuals, main="RealChickenPrice vs Residuals")
+plot( myRealDPIsq, myfit4$residuals, main="myRealDPIsq vs Residuals")
+
+
+boxplot(myfit4$residuals)
+qqnorm(myfit4$residuals)
+qqline(myfit4$residuals)
+
+
+```

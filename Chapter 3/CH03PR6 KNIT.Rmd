@@ -1,0 +1,41 @@
+---
+title: "Chapter 3 Question 6 - Michael Streyle"
+output:
+  word_document:
+  fig_height: 3.5
+fig_width: 4.5
+pdf_document: default
+html_document: default
+---
+  
+```{r echo=FALSE}
+
+setwd("C:/Users/Michael Streyle/Desktop/Applied Stats 1/Chapter 3")
+
+hardnessdata <- read.table(file.choose(),header=F,col.names=c("hardness","time"))
+attach(hardnessdata)
+
+plot(time,hardness)
+
+hfit <- lm (hardness ~ time)
+summary(hfit)
+abline(hfit$coefficients)
+
+cat("\nR SQUARED:\n\n")
+summary(hfit)$r.squared
+
+cat("\nCORRELATION COEFFICIENT:\n\n")
+cor(hardness,time)
+
+h.resid=hfit$residuals
+h.yhat=hfit$fitted.values
+boxplot(h.resid)
+boxplot(time)
+plot(h.yhat,h.resid)
+plot(time,h.resid)
+qqnorm(h.resid)
+
+
+
+```
+

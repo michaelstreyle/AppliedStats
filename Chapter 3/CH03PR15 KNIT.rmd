@@ -1,0 +1,35 @@
+---
+title: "Chapter 3 Question 15 - Michael Streyle"
+output:
+  word_document:
+  fig_height: 3.5
+fig_width: 4.5
+pdf_document: default
+html_document: default
+---
+  
+```{r echo=FALSE}
+
+setwd("C:/Users/Michael Streyle/Desktop/Applied Stats 1/Chapter 3")
+solution <- read.table(file.choose(),header=F,col.names=c("concentration","time"))
+
+attach(solution)
+
+# Plot the data
+plot(time,concentration)
+
+hfit <- lm (concentration ~ time)
+summary(hfit)
+hfit$coefficients
+abline(hfit$coefficients)
+
+
+h.full = lm (concentration ~ 0 + as.factor(time))
+anova(hfit,h.full)
+
+qf(.975, 1, 2)
+
+
+
+
+```

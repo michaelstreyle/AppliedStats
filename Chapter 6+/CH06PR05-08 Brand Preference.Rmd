@@ -1,0 +1,222 @@
+---
+title: "Chapter 6 Problems 6.5-6.8, Brand Preference"
+output: 
+  word_document:
+    fig_height: 3.5
+    fig_width: 5
+---
+
+### Michael Streyle
+
+A small-scale experimental study was conducted of the relation of degree of brand liking (Y) vs. moisture content (X1) and sweetness (X2) of a product.  The scatterplot matrix and correlation matrices appear below.
+
+```{r}
+mydata <- read.table(file.choose(),header=F,col.names=c("Y", "X1", "X2"))
+
+x1name = "Moisture Content"
+x2name = "Sweetness"
+yname = "Brand Preference" 
+
+attach(mydata)
+
+plot.new()
+plot (mydata)
+plot (mydata, col=ifelse(X2==2, 'blue', 'red'))
+cor (mydata)
+```
+
+Summarize the scatterplot matrix and correlation matrix...
+The scatterplot matrix shows the bivariate relationships for each predictor and response variable. The noteworthy relationships seems to be between Y and X1 (Brand Preference and Moisture Content). The correlation matrix shows the correlation coefficients for each bivariate relationship. The noteworthy relationships from the correlation matrix seem to also be for Y and X1 with a correlation coefficient of 0.8923929. Both of these matrices indicate the relationship between sweetness and brand preference is not very noteworthy. 
+
+
+
+
+Next, a multiple regression model is fit to the data:
+```{r}
+myfit <- lm (Y ~ X1 + X2)
+myfit
+confint(myfit, level=0.95)  
+summary(myfit)
+```
+
+The estimated regression function is   Yi = 37.65 + 4.425X1 + 4.375X2
+
+The interpretations of $b_1$ and $b_2$ are:b_1 is the change in mean responses per unit increase in moisture content when sweetness is held constant. 
+b_2 is the change in mean responses per unit increase in sweetness when moisture content is held constant. 
+
+
+
+
+```{r fig.height=5, fig.width=6}
+resid = myfit$residuals
+fitted = myfit$fitted.values
+
+plot.new()
+boxplot (resid)
+```
+
+The box plot tells us ... that the data is relatively normally distributed and has constant variance with no obvious outliers. 
+
+
+
+
+```{r}
+par(mfrow=c(1,2))
+
+plot (fitted, resid, xlab="Fitted Values", ylab="Residuals", col='blue')
+abline(h=0, col='red')
+
+plot (X1, resid, xlab=x1name, ylab="Residuals", col='blue')
+abline(h=0, col='red')
+
+plot (X2, resid, xlab=x2name, ylab="Residuals", col='blue')
+abline(h=0, col='red')
+
+mydata$X1X2 = X1 * X2
+plot (mydata$X1X2, resid, xlab="X1 * X2 Interaction", ylab="Residuals", col='blue')
+```
+
+These residual plots above tell us that there seems to be constant variance, a linear relationship, and no obvious outliers in the residuals vs fitted values and also in the residuals vs the moisture content. The plots of residuals vs sweetness and resiuals vs X1*X2 are not as clear, but show no obvious outliers.  
+
+
+
+
+```{r}
+plot.new()
+par(mfrow=c(1,2))
+plot (fitted, abs(resid), xlab="Fitted Values", ylab="Absolute Residuals", col='blue')
+low1 = lowess (fitted, abs(resid))
+lines (low1$x, low1$y, col='red')
+
+qqnorm (resid, col='blue')
+qqline (resid, col='red')
+
+```
+
+These plots tell us...
+The Absolute Residuals vs Fitted Values plot tells us that there is not constant variance. The Normal Q-Q Plot shows the data is relatively normally distributed and there are no obvious outliers. 
+
+
+
+
+
+```{r}
+plot.new()
+par(mfrow=c(1,1))
+plot (fitted, Y, xlab=paste("Fitted", yname), ylab=yname, col='blue', main="Observed Response vs Fitted Values")
+abline(0, 1, col='red')
+
+# Working-Hotelling limits (confidence band for the regression line) 
+
+error.df = summary(myfit)$df[2]
+num.pred = summary(myfit)$df[1]
+
+fcrit <- qf (0.95, num.pred, error.df)   
+#pred <- predict (myfit, mydata [, c("X1", "X2")], se.fit=TRUE)   
+wh.fit = lm (Y ~ fitted)
+wh.pred = predict (wh.fit, data.frame (fitted = wh.fit$fitted.values), se.fit=TRUE)   
+wh.fitted = wh.pred$fit 
+
+w <- sqrt (num.pred * fcrit)           
+marg.err <- w * wh.pred$se.fit   
+
+# Sort the fitted values from smallest to largest
+wh.order = order (wh.fitted)
+wh.ordered = wh.fitted [wh.order]
+
+wh.lower = wh.ordered - marg.err [wh.order]
+wh.upper = wh.ordered + marg.err [wh.order]
+
+lines (wh.ordered, wh.lower, lty=2, col='red')
+lines (wh.ordered, wh.upper, lty=2, col='red')
+
+```
+
+
+
+```{r}
+# Breusch-Pagan test
+library(lmtest)
+bptest(myfit, studentize=FALSE)
+```
+
+The alternatives are H0: y1 = 0, and Ha:y1 != 0 where y1 = 0 corresponds to constancy of error variance. The decision rule states that if p-value > 0.01 then conclude H0, and otherwise conclude Ha. 
+The Breusch-Pagan test indicates that BP = 1.0422 with a p-value of 0.5939 with level of significance set to 0.01. So we conclude H0 which is constancy of variance. 
+
+
+
+```{r}
+# Lack of fit test
+# How many levels of X1 combined with X2?
+
+aggregate (Y, by=list(X1, X2), FUN='mean')
+
+# Fit the full model:
+full = lm (Y ~ 0 + as.factor(X1) * as.factor(X2))
+anova (myfit, full)
+```
+The alternatives are H0: The relationship assumed in the model is reasonable (there is no lack of fit)
+HA: The relationship assumed in the model is not reasonable (there is lack of fit)
+Using a level of significance of 0.01, the decision rule states that if the p-value > 0.01, then conclude an appropriate fit, and if the p-value < 0.01, then conclude a lack of fit. 
+The lack of fit test indicates a p-value of 0.453 which is greater than 0.01, which indicates a lack of 'lack of fit', or an indication of an appropriate fit. 
+
+
+
+
+```{r}
+summary(myfit)
+```
+The alternatives for the F test are : H0: $\beta_1$ = 0 and Ha: $\beta_2$ != 0. 
+The decision rule states that if the p-value is less than the level of significance (0.01), then it indicates a good regression relation, and if the p-value is greater than the level of significance (0.01), then it indicates a poor regression relation. The p value for the F test is 2.658e-09 which is less than 0.01 which indicates a good regression relation. 
+
+
+
+
+```{r}
+confint (myfit, level=0.995)
+```
+
+Joint Bonferroni confidence intervals for $\beta_1$ and $\beta_2$ are 3.409483 <= $\beta_1$ <= 5.440517 and 2.104236 <= $\beta_2$ <= 6.645764. 
+
+
+Interpretation: With 99% family or joint confidence, the value of $\beta_1$ is between 3.409483 and 5.440517 and the value of $\beta_2$ is between 2.104236 and 6.645764. $\beta_1$ represents the change in mean likeness response per unit increase in moisture content when sweetness is held constant. $\beta_2$ represents the change in mean likeness response per unit increase in sweetness when moisture content is held constant. 
+
+
+
+
+```{r}
+summary(myfit)$r.squared
+```
+
+The coefficient of multiple determination for the model is: 0.952059 and it measures the proportionate reduction of the total variation in Y associated with the use of the set of X variables (X1 and X2). Even though we have a high coefficient of multiple determination, it does not mean that the fitted model is a useful one. 
+
+
+
+
+
+```{r}
+cor(Y, fitted)^2
+# or:
+summary(lm (Y ~ fitted))$r.squared
+```
+
+The coefficient of simple determination between Y and Yhat is: 0.952059. Yes, in this example the coefficient of simple determination between Y and Yhat is the same as the coefficient of multiple determination from part (a).
+
+
+
+
+```{r}
+predict (myfit, data.frame (X1=5, X2=4), interval='confidence', level=0.99)
+predict (myfit, data.frame (X1=5, X2=4), interval='prediction', level=0.99)
+```
+
+99% confidence interval, with interpretation, for the expected response when $X_1=5$ and $X_2=4$:The expected response, with 99% confidence, is between 73.88111 and 80.66889. This means when the moisture content is 5 and the sweetness is 4, the mean expected response would result in a 'likeness' value between 73.88111 and 80.66889 with 99 percent confidence. 
+
+
+
+99% confidence interval, with interpretation, for a new observation when $X_1=5$ and $X_2=4$:
+The expected value for a new observation with moisture content of 5 and sweetness of 4, with 99% confidence, will be between 68.48077 and 86.06923 likeness (degree of brand liking).
+
+
+
+

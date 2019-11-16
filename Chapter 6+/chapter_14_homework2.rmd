@@ -1,0 +1,80 @@
+---
+title: "Chapter 14 - Homework #2"
+output: word_document
+---
+  
+  ### Part 1 - Real Estate Sales data from Appendix C.7
+  
+  This first part of the homework uses the data in Appendix C.7.  The data are on real estate sales.  The response variable, sales price, will be categorized into three ordered groups:  <$200,000, $200,000-$300,000, and >=300,000.  The predictors used are total square feet (sqfeet), number of bedrooms (bedrms), presence of a pool (1=Yes, 0=No), and located near a highway (highway=1 if yes, 0 if no).
+
+```{r}
+realest <- read.table(file="C:/Users/iverph01/Documents/Stat 327/KutnerData/Appendix C Data Sets/APPENC07.txt",header=F, col.names=c("ID", "sales.price", "sqfeet", "bedrms", "bathrms", "aircond", "garsize", "pool", "yrbuilt", "quality", "style", "lotsize", "highway"))
+
+realest$salescat [realest$sales.price < 200000] = 1
+realest$salescat [200000 <= realest$sales.price & realest$sales.price < 300000] = 2
+realest$salescat [300000 <= realest$sales.price] = 3
+
+attach(realest)
+head(realest)
+
+library (MASS)
+model1 = polr (factor (salescat) ~ sqfeet + bedrms + pool + highway, Hess=T)
+summary (model1)
+
+coef1 = coef(model1)
+limits1 = confint.default(model1)
+exp (cbind (OR=coef1, limits1))
+exp (cbind (OR=100*coef1, 100*limits1)) [1,]
+```
+
+### Questions
+
+1.  In the context of this data set what are the two sets of events being compared when referring to odds ratios?
+
+
+
+2.  Interpret the odds ratio and its confidence interval for an increase of 100 square feet.
+
+
+
+3.  Interpret the odds ratio and its confidence interval for number of bedrooms.
+
+
+
+4.  Interpret the odds ratio and its confidence interval for the categorical predictors, pool and highway.
+
+
+
+
+### Part 2 - Geriatric data 
+
+Response variable is number of falls.
+
+Predictor variables are (1) whether or not there's been intervention to help prevent falls, (2) gender, (3) balance index, where larger values indicate better balance, and (4) strength, where larger values indicate better strength.
+
+```{r}
+falls <- read.table(file="C:/Users/iverph01/Documents/Stat 327/KutnerData/Chapter 14 Data Sets/CH14PR39.txt",header=F, col.names=c("numfalls", "intervention", "gender", "balance", "strength"))
+
+attach(falls)
+head(falls)
+
+plot (falls)
+
+model2 = glm (numfalls ~ intervention + gender + balance + strength, family=poisson)
+summary (model2)
+predobj = predict (model2, data.frame (intervention=1, gender=c(0,1), balance=60, strength=70), se.fit=T)
+lower95 = predobj$fit - qnorm (0.975)*predobj$se.fit
+upper95 = predobj$fit + qnorm (0.975)*predobj$se.fit
+# The default 'link' function in Poisson regression is log, so use exp to put 
+# fitted values and confidence limits on the original response scale (counts)
+exp (data.frame (Fitted.count = predobj$fit, Lower95 = lower95, Upper95 = upper95))
+```
+
+### Questions
+
+5.  Provide a statement about the qualitative effect of each predictor variable on the response
+
+
+
+
+6.  Interpret the two fitted response (count) values and their confidence intervals that are calculated above.

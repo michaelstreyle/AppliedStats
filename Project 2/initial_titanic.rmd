@@ -1,0 +1,234 @@
+---
+title: "Logistic Regression - Titanic Survival"
+authors: "Michael Streyle, Matt Foundos, Carly Mester"
+output: word_document
+---
+  
+```{r}
+
+#importing and cleaning the data 
+ship <- read.table('http://biostat.mc.vanderbilt.edu/wiki/pub/Main/DataSets/titanic.txt', header = T, sep=',')
+library(base)
+library(Hmisc)
+ship$pclass <- strtoi(substring(ship$pclass, 1, 1))
+colnames(ship) <- c("index", "pclass","survived","name","age","embarked","home.dest","room","ticket","boat","sex")
+
+```
+
+
+Below we are adding columns to the dataframe that are categorical based on missing data from other columns, as well as a column of the length of the passengers name, just for fun.
+```{r}
+#new column of length of passenger's name
+library(stringr)
+ship$name_length <- str_count(ship$name)
+
+#new column of if ticket is reported
+ship$ticket_rec <- ifelse(ship$ticket == '', yes=0, no=1)
+
+#new column of if room is reported
+ship$room_rec <- ifelse(ship$room == '', yes=0, no=1)
+
+#new column of if home.dest is reported
+ship$home.dest_rec <- ifelse(ship$home.dest == '', yes=0, no=1)
+
+#new column for it age was recorded
+ship$age_rec <- ifelse(ship$age == '', yes=0, no=1)
+ship$age_rec[is.na(ship$age_rec)] <- 0
+
+#new column for age groups with 9 referencing mising 
+ship$agegroup = ifelse(ship$age_rec == 1, cut(ship$age,c(0,10, 20, 30, 40, 50, 60, 70, 80)), 9)
+
+
+attach(ship)
+```
+
+The following is some initial exploration and individual variable plots:
+
+```{r}
+
+
+library(MASS)
+table1= xtabs(~survived+sex)
+table1
+
+table2 = xtabs(~survived+pclass)
+table2
+
+barplot (table (ifelse (survived==1, "Yes", "No")), xlab="Survival", ylab="# of people", main='Survival')
+
+hist (age, xlab="Age, years")
+hist (agegroup, xlab="Age Group, 9 = Missing")
+
+
+barplot(table(pclass), xlab='pclass', ylab='# of people', main='size of pclasses')
+
+barplot(table(embarked), main='Embarked Location, blank = missing', ylab='# of people')
+
+#plot survival vs length of name
+plot (jitter (survived, 0.1) ~ name_length, main='Length of Name vs Survival')
+lines (lowess (name_length, survived), col='red')
+
+#plotting survival vs agegroup
+plot (jitter (survived, 0.3) ~ agegroup, main='Age vs Survival')
+lines (lowess(agegroup, survived), col='red')
+
+
+#pairs plot 
+pairs(ship)
+
+
+
+#this plsmo function is super useful to see interactions
+plsmo(age, survived, group=sex, datadensity=T,  main='Survival vs Age grouped by Gender') # or group=pclass
+
+
+
+
+```
+
+
+Next, we will create a first order model. We opted to use the ticket_rec, room_rec, and home.dest_rec variables because they are all factor variables with a large number of levels, and we did not wanted to keep our degrees of freedom as high as possible. Also, these variables did not seem like they would logically be very significant, and home.dest has formatting inconsistencies. We also thought that these variables may not have been very accurately recorded. 
+```{r}
+#creating a first order model
+ship.logit <- glm(survived ~ pclass + name_length + agegroup + ticket_rec + room_rec + as.factor(embarked) + home.dest_rec + as.factor(sex), family=binomial)
+
+summary(ship.logit)
+
+plot(ship$agegroup, jitter(ship$survived, .4), col=ship$pclass, main='AgeGroup and pclass vs survived')
+legend('center', legend = unique(ship$pclass), col = 1:3, cex = 0.8, pch = 1)
+
+#NEED TO ADD THE CURVE FROM THE MODEL STILL
+
+#odds ratios
+expbetas = exp(ship.logit$coefficients)
+expbetas
+```
+
+Next, we use stepwise elimination with both directions, using AIC criteria, which results in the following model. The process removed the room_rec variable and the embarked location factor variable
+
+survived ~ pclass + name_length + agegroup + ticket_rec + home.dest_rec + 
+    as.factor(sex)
+    
+```{r}
+ship.logit.step = step(ship.logit, direction = 'both')
+summary(ship.logit.step)
+
+fitprob0 = predict(object = ship.logit.step, type = 'response')
+
+pred = predict(ship.logit, interval='prediction')
+plot(gender, fitprob0)
+
+
+fitprob1 = predict (disease.logit, data.frame (age=ageseq, socio="Upper", sector=1), type='response')
+lines (ageseq, fitprob1, col='blue')
+
+
+#aggregate(survived, by=list(boat), FUN=mean)
+
+```
+
+
+Next we fit a model with some interactions between significant predictors
+Then we used AIC criteria for another step elimination with both directions.
+This resulted in the following model:
+
+survived ~ pclass + agegroup + ticket_rec + as.factor(embarked) + 
+    home.dest_rec + as.factor(sex) + pclass:agegroup + pclass:as.factor(sex)
+    
+    Two interactions were kept: pclass times age group, and pclass times sex.
+    
+This model only loses 10 degrees of freedom and nearly all of the variables in the model are significant. 
+```{r}
+ship.logit.int <- glm(survived ~ pclass + name_length + agegroup + ticket_rec + room_rec + as.factor(embarked) + home.dest_rec + as.factor(sex) + pclass*name_length + pclass*agegroup + as.factor(sex)*agegroup + as.factor(sex)*agegroup + as.factor(sex)*pclass, family = binomial)
+
+summary(ship.logit.int)
+anova(ship.logit.int)
+
+step.int = step(ship.logit.int, direction = 'both')
+summary(step.int)
+
+#final model 
+fm =glm(formula = survived ~ pclass + agegroup + ticket_rec + as.factor(embarked) + home.dest_rec + as.factor(sex) + pclass:agegroup + pclass:as.factor(sex), family = binomial)
+
+expbetas_fm = exp (fm$coefficients)
+expbetas_fm
+
+```
+
+
+NEED TO INTERPRET THE DEVIANCE LACK OF FIT TESTS
+```{r}
+#------------------------Deviance test of lack of fit--------------------
+
+# First model
+pchisq(deviance(ship.logit), df.residual(ship.logit), lower=F)
+
+# Final model
+pchisq(deviance(fm), df.residual(fm), lower=F)
+
+```
+
+
+As seen below, both our initial model and our final model have p-values much less than 0.05 which means they both have significant effect on survival status. 
+```{r}
+
+#Getting the LR test statistic and P-value in R (multiple logistic regression):
+
+# First model
+
+1 - pchisq(ship.logit$null.deviance - ship.logit$deviance, 
+           ship.logit$df.null - ship.logit$df.residual)
+
+# Final model
+
+1 - pchisq(fm$null.deviance - fm$deviance, 
+           fm$df.null - fm$df.residual)
+
+```
+
+Confidence intervals and odds ratios for each variable
+```{r}
+confint.default (fm)
+exp (confint.default (fm))
+
+```
+
+Residual plots
+The Deviance Residuals looks really good. The lowess fitted line should be horizontal around zero, and it is not perfect, but not horrible. 
+```{r}
+# Residual plot
+
+dev<-residuals(fm)
+plot(dev, ylab="Reviance Residuals")
+abline(h=0, lty=3)
+
+
+
+plot (fm$fitted.values, dev, ylab="Deviance Residuals", xlab="Fitted Probabilities", main='Deviance Residuals vs Fitted Probablilites')
+lines (lowess (fm$fitted, dev), col="Red")
+
+
+```
+
+ROC Curve: The ROC curve suggests the predictive ability of this model is better than random guessing, since the AUC is larger than 0.5.  By examining the x, y, and alpha.value vectors in the object, perf1, STILL NEED STUFF HERE
+
+
+```{r}
+
+
+library(ROCR)
+pred1 <- prediction(fm$fitted.values, fm$y)
+perf1 <- performance(pred1,"tpr","fpr")
+auc1 <- performance(pred1,"auc")@y.values[[1]]
+auc1
+plot(perf1, lwd=2, col=2, main='ROC Curve')
+abline(0,1)
+legend(0.5,0.4, c(paste ("AUC=", round (auc1, 4), sep="")),   lwd=2, col=2)
+
+
+# Influence diagnostics
+
+library(car)
+influenceIndexPlot(fm, id.n=3)
+
+```

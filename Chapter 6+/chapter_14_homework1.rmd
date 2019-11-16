@@ -1,0 +1,93 @@
+---
+title: "Math 327 - Chapter 14 Homework 1, Michael Streyle"
+output: word_document
+---
+
+  
+Plot the logistic mean function, $E\{Y\}=exp(\beta_0+\beta_1 X_1)/(1+exp(\beta_0+\beta_1 X_1))$, when $\beta_0=-25$ and $\beta_1=0.2$.
+
+```{r}
+
+
+X = seq (90, 150)
+fitprob = exp(-25 + 0.2*X) / (1 + exp(-25 +0.2*X))
+plot(X, fitprob, main='Logistic Mean Function')
+lines(X, fitprob)
+
+```
+
+
+
+What is the predicted proabability for X=115?
+The predicted probability for X=115 is 0.1192.
+
+```{r}
+
+Xj = 115
+exp(-25 + 0.2*Xj) / (1 + exp(-25 + 0.2*Xj))
+
+
+
+```
+
+For what value of X is the mean response equal to 0.5?  (Solve for X algebraically, then calculate in R)
+
+The mean response is equal to 0.5 when X = 125.
+```{r}
+
+X_5 = (log(0.5/(1-0.5)) + 25)/0.2
+X_5
+
+
+```
+
+Find the odds when $X=130$, when $X=131$, and the odds ratio for X=131 vs. X=130.  Verify that this odds ratio is equal to $exp(\beta_1)$.
+
+The odds when X=130 and when X=131 are 2.718 and 3.3201 respectively. 
+The odds ratio between X=130 and X=131 is 1.2214. 
+This is confirmed when you calculate exp(0.2), which also is equal to 1.2214 as seen in the knitted code. 
+
+```{r}
+
+Xk = c(130, 131)
+fitprob2 = exp(-25 + 0.2*Xk) / (1 + exp(-25 +0.2*Xk))
+fitprob2
+odds2 = fitprob2 / (1 - fitprob2)
+odds2
+
+odds.ratio = odds2[2] / odds2[1]
+odds.ratio
+
+exp(0.2)  #demonstrates the interpretation of the slope in logistic regression
+
+```
+
+A psychologist conducted a study to examine the nature of the relation,
+if any, between an employee's emotional stability (X) and the employee's ability to perform in a task group (Y). Emotional stability was measured by a written test for which the higher the score, the greater is the emotional stability. Ability to perform in a task group (Y = 1 if able, Y = 0 if unable) was evaluated by the supervisor.
+                 
+                 
+```{r}
+taskperf = c(0, 0, 0, 1, 1, 0, 0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1)        
+
+emostab = c(474, 432, 453, 481, 619, 584, 399, 582, 638, 624, 542, 650, 553, 425, 563, 549, 498, 520, 610, 598, 491, 617, 621, 573, 562, 506, 600)
+
+plot (emostab, taskperf, main='Psychologist Study Plot', xlab="Emotional Stability", ylab="Task Performance")
+
+lines (lowess (taskperf ~ emostab), col='red')
+logistic.fit = glm (taskperf ~ emostab, family=binomial)
+
+summary (logistic.fit)
+betahat = coefficients(logistic.fit)                 
+emostab.seq = seq(400, 650, by=5)
+X <- cbind(1, emostab.seq)
+Xb <- X %*% betahat
+prob = exp(Xb)/(1+exp(Xb))
+lines(emostab.seq, prob, col='blue')
+                
+exp(0.018920)                
+```
+                 
+Obtain $exp(\beta_1)$ and interpret that number.
+
+The slope coefficient for X1 (emotional stability) is 0.018920, and so $exp(\beta_1)$ is 1.0191 which is interpretted as the odds ratio corresponding to a one unit change in X1. This means that the odds of being able to take part in a task group increase by 1.91 percent with each additional unit increase in emotional stability score. 
+                 

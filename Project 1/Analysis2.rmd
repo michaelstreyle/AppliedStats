@@ -1,0 +1,217 @@
+---
+title: "Beef Data - Final Analysis"
+author: "Michael Streyle, Carly Mester, Matt Foundos"
+date: "November 5, 2017"
+output: word_document
+---
+  
+```{r}
+# Set global figure size
+#knitr::opts_chunk$set(fig.width=6, fig.height=3.5) 
+
+
+beef <- read.table('http://ww2.amstat.org/publications/jse/v22n1/kopcso/BeefDemand.txt', header = TRUE)
+
+
+attach(beef)
+#creating a new variable called myRealDPI because there is an error in X.RDPI.Mean..sq
+myRealDPIsq=(RealDPI-mean(RealDPI))^2
+
+
+
+```
+
+```{r}
+boxplot(ChickPrice, main="Chicken Price")
+boxplot(BeefPrice, main="Beef Price")
+boxplot(BeefConsump, main="Beef Consumption", ylab='pounds')
+boxplot(log(BeefConsump), main=" LOG Beef Consumption", ylab='pounds')
+boxplot(CPI, main="CPI")
+boxplot(DPI, main="DPI")
+boxplot(RealChickenPrice, main="Real Chicken Price")
+boxplot(RealBeefPrice, main="Real Beef Price")
+boxplot(RealDPI, main="Real DPI")
+boxplot(myRealDPIsq, main="Real DPI-Squared")
+
+
+```
+
+
+
+
+
+```{r fig1, fig.height = 8, fig.width = 8}
+round (cor(beef), 2)
+pairs(beef)
+
+
+```
+
+
+
+
+```{r}
+#fit a model with all variables 
+myfit1 <- lm(BeefConsump ~ Year + ChickPrice + BeefPrice + CPI + DPI + RealChickenPrice + RealBeefPrice + RealDPI + myRealDPIsq)
+plot(myfit1)
+
+summary(myfit1)
+anova(myfit1)
+
+boxplot(myfit1$residuals)
+qqnorm(myfit1$residuals)
+qqline(myfit1$residuals)
+
+plot(myfit1)
+library(MASS)
+boxcox(myfit1, main='Boxcox')
+```
+
+
+##Interaction Effects
+
+```{r}
+
+#creating a function to center a variable
+my.center = function (x) (x - mean (x))
+
+detach(beef)
+
+#centering our three significant variables from our first order model. Year, BeefPrice, and RealBeefPrice, and CPI since it is significant in our myFit4
+beef$Year.c = my.center (beef$Year)
+beef$BeefPrice.c = my.center (beef$BeefPrice)
+beef$RealBeefPrice.c = my.center (beef$RealBeefPrice)
+beef$CPI.c = my.center (beef$CPI)
+
+
+attach(beef)
+
+beef$Year.BeefPrice = Year.c * BeefPrice.c
+beef$Year.RealBeefPrice = Year.c * RealBeefPrice.c
+beef$Year.CPI = Year.c * CPI.c
+
+beef$BeefPrice.RealBeefPrice = BeefPrice.c * RealBeefPrice.c
+beef$BeefPrice.CPI = BeefPrice.c * CPI.c
+
+beef$RealBeefPrice.CPI = RealBeefPrice.c * CPI.c
+
+detach(beef)
+attach(beef)
+
+#fit a model with the primary predictors and their interactions
+#then do a backward elimination
+
+fit.int = lm(BeefConsump ~ Year.c + BeefPrice.c + RealBeefPrice.c + CPI.c + Year.BeefPrice + Year.RealBeefPrice + Year.CPI + BeefPrice.RealBeefPrice + BeefPrice.CPI + RealBeefPrice.CPI)
+
+summary(fit.int)
+
+```
+
+
+
+
+
+
+
+```{r}
+n=36
+step.int = step (fit.int, direction = "both", k=log(n))
+summary(step.int)
+```
+
+The stepwise procedure ended with the following model:
+BeefConsump ~ Year.c + RealBeefPrice.c + CPI.c + Year.BeefPrice + 
+    Year.CPI + BeefPrice.RealBeefPrice + BeefPrice.CPI
+    
+Our BeefPrice was removed, but three interaction effects involving BeefPrice were kept. We will test this model vs a reduced model where those three interaction effects are removed. 
+
+
+
+```{r}
+step.int.red = lm(BeefConsump ~ Year.c + RealBeefPrice.c + CPI.c + BeefPrice.c +
+    Year.CPI + Year.BeefPrice)
+summary(step.int.red)
+anova(step.int.red, step.int)
+
+```
+
+The full step-wise model fits better than the reduced model. The difference between models has a p-value of 0.0007566. While it is a very small p-value, neither of these models fits as well as our myfit4. 
+
+
+```{r}
+par (mfrow = c(1, 2))
+plot (step.int.red, main="Stepwise w/Interactions")
+plot (step.int.red$fitted.values, BeefConsump, main="BeefConsump vs Fitted",
+      xlab = "Fitted BeefConsump", ylab = "BeefConsump")
+abline(0, 1)
+
+
+```
+The residuals vs fitted looks pretty good.  There is little evidence of outliers, non-constant variance, or significant curvature.  The Q-Q plot also looks pretty good.  All points are pretty close to the line, indicating that a normal distribution is a reasonable assumption for these residuals. 
+
+
+
+
+```{r}
+#fit a model with all variables and interactions(2)
+myfit5 <- lm(BeefConsump ~ Year + ChickPrice + BeefPrice + CPI + DPI + RealChickenPrice + RealBeefPrice + RealDPI + myRealDPIsq + BeefPrice.RealBeefPrice + Year.CPI)
+plot(myfit5)
+
+summary(myfit5)
+anova(myfit5)
+
+boxplot(myfit5$residuals)
+qqnorm(myfit5$residuals)
+qqline(myfit5$residuals)
+
+```
+The interactions are not significant and there is no  added significance once we add the interactions to our myfit1.
+
+
+
+
+
+
+```{r}
+#myfit4 from first draft analysis
+myfit4 <- lm(formula = BeefConsump ~ Year + BeefPrice + CPI + RealChickenPrice + 
+    RealBeefPrice)
+plot(myfit4)
+summary(myfit4)
+
+
+par (mfrow = c(1,2))
+library (car)
+avPlots(myfit4)
+```
+
+
+
+
+```{r}
+#some predictions using myfit4
+p.myfit4 = predict(myfit4, interval='prediction')
+round(p.myfit4[c(3:4, 23:24, 27:28)], 3)  #myfit4 predicted values
+round(BeefConsump[c(3:4, 23:24, 27:28)], 3)  #actual values
+
+p.step.int = predict(step.int, interval='prediction')
+round(p.step.int[c(3:4, 23:24, 27:28)], 3)  #step.int predicted values
+round(BeefConsump[c(3:4, 23:24, 27:28)], 3)  #actual values
+
+
+p.step.int.red = predict(step.int.red, interval='prediction')
+round(p.step.int.red[c(3:4, 23:24, 27:28)], 3)  #step.int.red predicted values
+round(BeefConsump[c(3:4, 23:24, 27:28)], 3)  #actual values
+
+x = round(p.step.int[c(3:4, 23:24, 27:28)], 3) - round(BeefConsump[c(3:4, 23:24, 27:28)], 3) #differences between actual and predicted using step.int
+sum(abs(x)) #sum of absolute value of differences between predicted using step.int and actual
+
+
+z = round(p.myfit4[c(3:4, 23:24, 27:28)], 3) - round(BeefConsump[c(3:4, 23:24, 27:28)], 3) #differences between actual and predicted using myfit4
+sum(abs(z)) #sum of absolute value of differences between predicted using myfit4 and actual values
+
+w = round(p.step.int.red[c(3:4, 23:24, 27:28)], 3) - round(BeefConsump[c(3:4, 23:24, 27:28)], 3) #differences between actual and predicted using step.int.red
+sum(abs(w)) #sum of absolute value of differences between predicted using step.int.red and actual values
+```
+Summing the absolute differences between the predictive model and the actual values serves as a way to compare how useful each model is in predicting the response variable. The sum of the differences using step.int is 
+10.374, the sum of the differences using step.int.red is 10.109, and the sum of the differences using myfit4 is 8.989. This indicates that for predictive purposes, myfit4 is probably the most useful (although all models show strong standard error and R squared values.)

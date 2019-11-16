@@ -1,0 +1,42 @@
+---
+title: "Chapter 1 Problem 21 Michael Streyle"
+output:
+  word_document:
+    fig_height: 3.5
+    fig_width: 4.5
+  pdf_document: default
+  html_document: default
+---
+
+```{r echo=FALSE}
+
+# Alternatively, set the working directory and supply the file name
+setwd ("C:/Users/Michael Streyle/Desktop/Applied Stats 1")
+shipment <- read.table("CH01PR21.txt",header=F,col.names=c("broken","route"))
+
+
+# This command makes data frame column names available as variables
+attach(shipment)
+
+# Plot the data
+plot(route,broken)
+
+# Fit the regression model
+fit <- lm (broken ~ route)
+fit
+b1 <- fit$coeff[2]
+b0 <- fit$coeff[1]
+broken_1 <- b0 + b1*1
+abline (b0,b1)
+broken_1
+broken_2 <- b0 + b1*2
+broken_2
+broken_2 - broken_1
+
+
+points(mean(route), mean(broken), col = " red ")
+
+
+```
+
+The intercept is `r round(b0,2)` GPA units and the slope is `r round(b1,4)` GPA unit per ACT score increment.
